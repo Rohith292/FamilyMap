@@ -4,37 +4,27 @@
 console.log("useAuthStore is up and running");
 
 import { create } from 'zustand';
-import axios from 'axios';
+import { axiosInstance } from '../lib/axios'; // <<<<< IMPORTANT: Import the configured instance!
 import toast from 'react-hot-toast'; 
 
-// CRITICAL FIX: The base URL should be configured in an instance.
-// Ensure your axiosInstance.js file correctly sets the base URL with '/api'.
-// This is a placeholder for demonstration.
-const axiosInstance = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL}/api`,
-  withCredentials: true,
-});
-
-export const useAuthStore = create((set) => ({
+export const useAuthStore = create((set, get) => ({
     // State variables
     authUser: JSON.parse(localStorage.getItem('authUser')) || null,
     isCheckingAuth: true,
+    isSigningUp: false,
+    isLoggingIn: false,
+    isUpdatingProfile: false,
     
-    // Derived state for convenience
-    isAuthenticated: () => !!useAuthStore.getState().authUser,
-
     // Actions
     setAuthUser: (authUser) => {
         if (authUser) {
             localStorage.setItem('authUser', JSON.stringify(authUser));
-            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${authUser.token}`;
             set({ authUser });
-            console.log("[useAuthStore] AuthUser set. Axios default Authorization header updated.");
+            console.log("[useAuthStore] AuthUser set.");
         } else {
             localStorage.removeItem('authUser');
-            delete axiosInstance.defaults.headers.common['Authorization'];
             set({ authUser: null });
-            console.log("[useAuthStore] AuthUser removed. Axios default Authorization header cleared.");
+            console.log("[useAuthStore] AuthUser removed.");
         }
     },
 
@@ -44,23 +34,22 @@ export const useAuthStore = create((set) => ({
         
         try {
             console.log("[useAuthStore] Checking authentication status...");
-            // The axios interceptor will attach the token from localStorage
-            const response = await axiosInstance.get('/auth/check');
+            // The axios interceptor will handle attaching the token from localStorage
+            await axiosInstance.get('/auth/check');
             
-            // If the check is successful, ensure the local storage user is still valid
+            // If the check is successful, we know our localStorage token is valid
             const authUser = JSON.parse(localStorage.getItem('authUser'));
             if (authUser) {
-                useAuthStore.getState().setAuthUser(authUser);
+                get().setAuthUser(authUser);
             } else {
-                // If local storage is empty, clear the state
-                useAuthStore.getState().setAuthUser(null);
+                get().setAuthUser(null);
             }
             
             console.log("[useAuthStore] Auth check successful.");
         } catch (error) {
-            console.log("[useAuthStore] Auth check failed:", error.response.data.message);
+            console.log("[useAuthStore] Auth check failed:", error.response?.data?.message || error.message);
             // On any error (e.g., 401), clear the user state
-            useAuthStore.getState().setAuthUser(null);
+            get().setAuthUser(null);
         } finally {
             // Set loading state to false once the check is complete
             set({ isCheckingAuth: false });
