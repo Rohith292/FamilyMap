@@ -13,34 +13,29 @@ import LoginPage from "./pages/LoginPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 
-// The following imports were not used in the original code, but are kept for reference if needed elsewhere.
-// import AlbumDetailsPage from "./pages/AlbumDetailsPage";
-// import PhotoAlbumsPage from "./pages/PhotoAlbumsPage";
-// import FamilyGroupDetailsPage from "./components/familyGroups/FamilyGroupDetailsContent";
-// import FamilyGroupsPage from "./pages/FamilyGroupsPage";
-// import GroupAlbumDetailsPage from "./pages/GroupAlbumDetailsPage";
-
 // Import stores
 import { useAuthStore } from "./store/useAuthStore";
 import { useThemeStore } from "./store/useThemeStore";
 
+// ==========================================================
+// FIX 1: Refactored App component for more robust routing
+// ==========================================================
 const App = () => {
     const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
     const { theme } = useThemeStore();
 
     useEffect(() => {
-        // CRITICAL FIX: Always run the auth check on app load.
+        // Only run the auth check once on app load
         checkAuth();
     }, [checkAuth]);
 
-    // NEW FIX: This useEffect will run whenever the 'theme' state changes.
-    // It correctly applies the selected DaisyUI theme to the root <html> tag,
-    // ensuring the theme is applied globally across the entire application.
     useEffect(() => {
+        // Applies the selected theme to the root <html> tag
         document.documentElement.setAttribute('data-theme', theme);
     }, [theme]);
 
     // Show a global loader while checking authentication status.
+    // This is crucial to prevent the infinite redirect loop.
     if (isCheckingAuth) {
         return (
             <div className="flex items-center justify-center h-screen">
@@ -49,40 +44,68 @@ const App = () => {
         );
     }
 
-    const isAuthenticated = !!authUser;
-
     return (
-        // The data-theme attribute is no longer needed on this div.
-        // The useEffect hook above handles setting it on the <html> tag.
         <div className="h-screen flex flex-col">
             <Navbar />
             <div className="flex-1 flex">
                 <Routes>
-                    {/* Public Routes */}
-                    <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
-                    <Route path="/login" element={!authUser ? <LoginPage /> : <Navigate to="/" />} />
+                    {/* Public Routes: Redirect to home if user is logged in */}
+                    <Route 
+                        path="/signup" 
+                        element={authUser ? <Navigate to="/" /> : <SignUpPage />} 
+                    />
+                    <Route 
+                        path="/login" 
+                        element={authUser ? <Navigate to="/" /> : <LoginPage />} 
+                    />
 
-                    {/* Authenticated Routes */}
-                    <Route path="/" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    <Route path="/albums" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    <Route path="/albums/:albumId" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    <Route path="/family-groups" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    <Route path="/family-groups/:groupId" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    
-                    {/* NEW ROUTE: Added to handle the new GroupAlbumDetailsPage */}
+                    {/* Authenticated Routes: Redirect to login if user is not logged in */}
+                    <Route 
+                        path="/" 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
+                    />
+                    <Route 
+                        path="/albums" 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
+                    />
+                    <Route 
+                        path="/albums/:albumId" 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
+                    />
+                    <Route 
+                        path="/family-groups" 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
+                    />
+                    <Route 
+                        path="/family-groups/:groupId" 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
+                    />
                     <Route 
                         path="/family-groups/:groupId/albums/:albumId" 
-                        element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
                     />
-                    
-                    {/* Other authenticated routes already present */}
-                    <Route path="/sharing" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    <Route path="/analytics" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    <Route path="/share/:uniqueShareId" element={<HomePage isAuthenticated={isAuthenticated} />} />
-                    <Route path="/map/:mapId" element={<HomePage isAuthenticated={isAuthenticated} />} />
-                    <Route path="/family-groups/:groupId/tree" element={authUser ? <HomePage isAuthenticated={isAuthenticated} /> : <Navigate to="/login" />} />
-                    <Route path="/settings" element={authUser ? <SettingsPage /> : <Navigate to="/login" />} />
-                    <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
+                    <Route 
+                        path="/sharing" 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
+                    />
+                    <Route 
+                        path="/analytics" 
+                        element={authUser ? <HomePage /> : <Navigate to="/login" />} 
+                    />
+                    <Route 
+                        path="/settings" 
+                        element={authUser ? <SettingsPage /> : <Navigate to="/login" />} 
+                    />
+                    <Route 
+                        path="/profile" 
+                        element={authUser ? <ProfilePage /> : <Navigate to="/login" />} 
+                    />
+
+                    {/* Public share link route (accessible without auth) */}
+                    <Route 
+                        path="/share/:uniqueShareId" 
+                        element={<HomePage />} 
+                    />
 
                     {/* Catch-all route */}
                     <Route path="*" element={<Navigate to="/" />} />
