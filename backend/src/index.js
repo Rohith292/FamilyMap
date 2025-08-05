@@ -40,9 +40,7 @@ app.use((req, res, next) => {
 
 // Serve static assets from the frontend's dist folder
 // This must be placed before any routes that might serve index.html
-const staticFilesPath = path.join(__dirname, "../frontend/dist");
-console.log("Serving static files from:", staticFilesPath);
-app.use(express.static(staticFilesPath));
+
 
 
 // API routes - all prefixed with /api
@@ -68,10 +66,6 @@ app.get("/share/:uniqueShareId", (req, res) => {
 // also serve the index.html, allowing React Router to take over.
 // This must be the LAST route handler for GET requests.
 // Using the standard Express wildcard '*'
-app.get("/{*any}", (req, res) => {
-    console.log(`Catch-all route serving index.html for URL: ${req.url}`);
-    res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
-});
 
 
 app.listen(PORT, () => {
