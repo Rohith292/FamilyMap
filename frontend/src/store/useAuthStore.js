@@ -15,55 +15,54 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
-export const useAuthStore = create((set, get) => ({
+const useAuthStore = create((set) => ({
+    // State variables
     authUser: JSON.parse(localStorage.getItem('authUser')) || null,
-    isSigningUp: false,
-    isLoggingIn: false,
-    isUpdatingProfile: false,
     isCheckingAuth: true,
-    onlineUsers: [],
-    socket: null,
+    
+    // Derived state for convenience
+    isAuthenticated: () => !!useAuthStore.getState().authUser,
 
-    setAuthUser: (user) => {
-        console.log("[useAuthStore] attempting to set the user to current user as", user);
-        set({ authUser: user });
-        if (user) {
-            localStorage.setItem('authUser', JSON.stringify(user));
-            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${user.token}`;
+    // Actions
+    setAuthUser: (authUser) => {
+        if (authUser) {
+            localStorage.setItem('authUser', JSON.stringify(authUser));
+            axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${authUser.token}`;
+            set({ authUser });
             console.log("[useAuthStore] AuthUser set. Axios default Authorization header updated.");
         } else {
             localStorage.removeItem('authUser');
             delete axiosInstance.defaults.headers.common['Authorization'];
+            set({ authUser: null });
             console.log("[useAuthStore] AuthUser removed. Axios default Authorization header cleared.");
         }
     },
 
-    // ==========================================================
-    // FIX 2: Refactored checkAuth to be more resilient
-    // ==========================================================
     checkAuth: async () => {
+        // Set loading state to true to indicate we're checking auth
         set({ isCheckingAuth: true });
+        
         try {
-            const res = await axiosInstance.get('/auth/check');
+            console.log("[useAuthStore] Checking authentication status...");
+            // The axios interceptor will attach the token from localStorage
+            const response = await axiosInstance.get('/auth/check');
             
-            // Assuming a successful response means the user is authenticated.
-            if (res.data && res.data._id) {
-                const storedAuthUser = JSON.parse(localStorage.getItem('authUser'));
-                const token = storedAuthUser ? storedAuthUser.token : null;
-                const userWithToken = { ...res.data, token }; 
-                get().setAuthUser(userWithToken);
+            // If the check is successful, ensure the local storage user is still valid
+            const authUser = JSON.parse(localStorage.getItem('authUser'));
+            if (authUser) {
+                useAuthStore.getState().setAuthUser(authUser);
             } else {
-                // If the response is not a valid user object, treat it as unauthenticated.
-                get().setAuthUser(null);
+                // If local storage is empty, clear the state
+                useAuthStore.getState().setAuthUser(null);
             }
+            
+            console.log("[useAuthStore] Auth check successful.");
         } catch (error) {
-            // A network error or an unsuccessful status code (e.g., 401)
-            // means the user is not authenticated.
-            console.error('[useAuthStore] Auth check failed:', error);
-            get().setAuthUser(null);
+            console.log("[useAuthStore] Auth check failed:", error.response.data.message);
+            // On any error (e.g., 401), clear the user state
+            useAuthStore.getState().setAuthUser(null);
         } finally {
-            // This is the most crucial part: always set isCheckingAuth to false.
-            // This prevents the infinite loading spinner.
+            // Set loading state to false once the check is complete
             set({ isCheckingAuth: false });
         }
     },
