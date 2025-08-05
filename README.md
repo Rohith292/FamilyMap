@@ -89,4 +89,3 @@ Suggestions and ideas for future enhancements are always welcome. Feel free to o
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
-_Crafted with ❤️ and a little help from Gemini_
