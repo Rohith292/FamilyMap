@@ -1,0 +1,21 @@
+# Dependency directory
+node_modules/
+dist/
+build/
+
+# Ignore all .env files and their variants
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+
+# Optional: You might also want to ignore log files
+npm-debug.log*
+yarn-debug.log*
+
+# Optional: VS Code settings, if you don't want to share them
+.vscode/
+
+# Optional: Other common ignored files
+.DS_Store
