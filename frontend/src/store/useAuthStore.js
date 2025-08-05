@@ -15,7 +15,7 @@ const axiosInstance = axios.create({
   withCredentials: true,
 });
 
-const useAuthStore = create((set) => ({
+export const useAuthStore = create((set) => ({
     // State variables
     authUser: JSON.parse(localStorage.getItem('authUser')) || null,
     isCheckingAuth: true,
