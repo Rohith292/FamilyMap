@@ -1,4 +1,3 @@
-// frontend/src/lib/axios.js
 import axios from "axios";
 
 export const axiosInstance = axios.create({
@@ -10,17 +9,13 @@ export const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
     (config) => {
         // We only want to add the authorization header if it's not a login or signup route.
-        // The auth check route now correctly uses the header.
         const isAuthRoute = config.url.includes('/auth/login') || config.url.includes('/auth/signup');
 
+        // For all routes except login and signup, we check for a token.
         if (!isAuthRoute) {
-            let token = axiosInstance.defaults.headers.common['Authorization']?.split(' ')[1];
-
-            if (!token) {
-                // Fallback to localStorage if the default header is not set
-                const authUser = JSON.parse(localStorage.getItem('authUser'));
-                token = authUser?.token;
-            }
+            // We now check localStorage directly on every request to ensure we always have the latest token
+            const authUser = JSON.parse(localStorage.getItem('authUser'));
+            const token = authUser?.token;
 
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
@@ -43,7 +38,7 @@ axiosInstance.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        
+
         // Determine if the original request was for a public share map API call
         const isPublicShareApiCall = originalRequest.url.includes('/family/map') && originalRequest.params && originalRequest.params.shareId;
 
