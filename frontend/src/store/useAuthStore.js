@@ -83,8 +83,17 @@ export const useAuthStore = create((set, get) => ({
         set({ isSigningUp: true });
         try {
             const res = await axiosInstance.post("/auth/signup", data);
-            get().setAuthUser(res.data); // This will save to localStorage and set Axios default header
-            toast.success("Account created successfully");
+            // For signup, the backend also returns the user details and token at the root level
+            const { token, ...userDetails } = res.data; // Correctly destructure
+            if (userDetails && token) {
+                const newUser = { ...userDetails, token: token };
+                get().setAuthUser(newUser); // This will save to localStorage and set Axios default header
+                toast.success("Account created successfully");
+            } else {
+                console.error("[useAuthStore] Signup response missing user details or token:", res.data);
+                toast.error("Signup failed: Invalid response from server.");
+                get().setAuthUser(null);
+            }
         } catch (error) {
             toast.error(error.response?.data?.message || "Signup failed.");
         } finally {
@@ -97,20 +106,16 @@ export const useAuthStore = create((set, get) => ({
         try {
             const res = await axiosInstance.post("/auth/login", data);
             // *** THE CRITICAL FIX IS HERE ***
-            // Ensure res.data contains both user and token.
-            // If your backend returns { user: { ... }, token: "..." }
-            // then res.data.user is the user object and res.data.token is the token string.
-            // We need to construct the new user object correctly.
-            const userDetails = res.data.user; // Get the user details
-            const token = res.data.token;     // Get the token string
+            // Use object destructuring to extract 'token' and collect the rest into 'userDetails'
+            const { token, ...userDetails } = res.data;
 
-            if (userDetails && token) {
+            if (userDetails && userDetails._id && token) { // Added userDetails._id for a more robust check
                 const newUser = { ...userDetails, token: token };
                 get().setAuthUser(newUser); // This will save to localStorage and set Axios default header
                 toast.success("Logged in successfully");
             } else {
                 // This case should ideally not happen if backend is correct, but good for debugging
-                console.error("[useAuthStore] Login response missing user details or token:", res.data);
+                console.error("[useAuthStore] Login response missing essential user details or token:", res.data);
                 toast.error("Login failed: Invalid response from server.");
                 get().setAuthUser(null); // Clear auth if response is malformed
             }
@@ -135,7 +140,22 @@ export const useAuthStore = create((set, get) => ({
         set({ isUpdatingProfile: true });
         try {
             const res = await axiosInstance.put("/auth/update-profile", data);
-            get().setAuthUser(res.data); // This will update localStorage and Axios default header
+            // Assuming update-profile also returns the updated user object at the root
+            const { token, ...updatedUserDetails } = res.data; // Destructure if token is also returned
+            // If update-profile only returns user details without a new token:
+            // const updatedUserDetails = res.data;
+            // And then merge with existing token if needed:
+            // const currentAuthUser = get().authUser;
+            // const newUser = { ...updatedUserDetails, token: currentAuthUser?.token };
+
+
+            // For simplicity, assuming the backend returns the full updated user object (including profilePic)
+            // and potentially a new token if the token payload changes (though usually not for profile pic updates).
+            // If the backend doesn't return a token, ensure you retain the existing one.
+            const currentAuthUser = get().authUser;
+            const newUser = { ...updatedUserDetails, token: token || currentAuthUser?.token };
+
+            get().setAuthUser(newUser); // This will update localStorage and Axios default header
             toast.success("Profile updated successfully");
         } catch (error) {
             console.log("error in update profile:", error);
