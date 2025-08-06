@@ -96,10 +96,24 @@ export const useAuthStore = create((set, get) => ({
         set({ isLoggingIn: true });
         try {
             const res = await axiosInstance.post("/auth/login", data);
-            // Ensure the token is part of the authUser object if it's not already
-            const newUser = { ...res.data.user, token: res.data.token };
-            get().setAuthUser(newUser); // This will save to localStorage and set Axios default header
-            toast.success("Logged in successfully");
+            // *** THE CRITICAL FIX IS HERE ***
+            // Ensure res.data contains both user and token.
+            // If your backend returns { user: { ... }, token: "..." }
+            // then res.data.user is the user object and res.data.token is the token string.
+            // We need to construct the new user object correctly.
+            const userDetails = res.data.user; // Get the user details
+            const token = res.data.token;     // Get the token string
+
+            if (userDetails && token) {
+                const newUser = { ...userDetails, token: token };
+                get().setAuthUser(newUser); // This will save to localStorage and set Axios default header
+                toast.success("Logged in successfully");
+            } else {
+                // This case should ideally not happen if backend is correct, but good for debugging
+                console.error("[useAuthStore] Login response missing user details or token:", res.data);
+                toast.error("Login failed: Invalid response from server.");
+                get().setAuthUser(null); // Clear auth if response is malformed
+            }
         } catch (error) {
             toast.error(error.response?.data?.message || "Login failed.");
         } finally {
