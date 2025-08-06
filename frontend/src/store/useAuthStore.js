@@ -7,13 +7,14 @@ import toast from 'react-hot-toast'; // Ensure toast is imported
 // Initialize authUser from localStorage immediately
 const initialAuthUser = JSON.parse(localStorage.getItem('authUser')) || null;
 
-// Set Axios default header if a token exists on initial load
-if (initialAuthUser && initialAuthUser.token) {
-  axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${initialAuthUser.token}`;
-  console.log("[useAuthStore] Initializing: Axios default Authorization header set from localStorage.");
-} else {
-  console.log("[useAuthStore] Initializing: No authUser or token found in localStorage.");
-}
+// IMPORTANT FIX: Remove direct Axios default header setting here.
+// The request interceptor in axios.js will handle this dynamically.
+// if (initialAuthUser && initialAuthUser.token) {
+//   axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${initialAuthUser.token}`;
+//   console.log("[useAuthStore] Initializing: Axios default Authorization header set from localStorage.");
+// } else {
+//   console.log("[useAuthStore] Initializing: No authUser or token found in localStorage.");
+// }
 
 export const useAuthStore = create((set, get) => ({
   authUser: initialAuthUser, // Use the pre-initialized value
@@ -30,14 +31,14 @@ export const useAuthStore = create((set, get) => ({
     set({ authUser: user });
     if (user) {
       localStorage.setItem('authUser', JSON.stringify(user));
-      // Set default Authorization header for axiosInstance
-      axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${user.token}`;
-      console.log("[useAuthStore] AuthUser set. Axios default Authorization header updated."); // Debug log
+      console.log("[useAuthStore] AuthUser set. localStorage updated."); // Debug log
+      // IMPORTANT FIX: Remove direct Axios default header setting here.
+      // axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${user.token}`;
     } else {
       localStorage.removeItem('authUser');
-      // Remove default Authorization header
-      delete axiosInstance.defaults.headers.common['Authorization'];
-      console.log("[useAuthStore] AuthUser removed. Axios default Authorization header cleared."); // Debug log
+      console.log("[useAuthStore] AuthUser removed. localStorage cleared."); // Debug log
+      // IMPORTANT FIX: Remove direct Axios default header clearing here.
+      // delete axiosInstance.defaults.headers.common['Authorization'];
     }
   },
 
@@ -45,27 +46,29 @@ export const useAuthStore = create((set, get) => ({
     console.log("[checkAuth] starting the checkAuth function");
     set({ isCheckingAuth: true });
     try {
+      // The axiosInstance interceptor will automatically add the token if available in localStorage
       const res = await axiosInstance.get('/auth/check');
 
       console.log("[useAuthStore] Server response for /auth/check:", res.data);
 
-      // CRITICAL FIX: The server returns the user object directly in res.data
-      // We'll check for its existence and its _id.
       if (res.data && res.data._id) {
+        // When /auth/check returns successfully, it means the token was valid.
+        // We need to ensure the token from localStorage is re-attached to the user object
+        // because the backend's /auth/check endpoint typically doesn't return the token itself.
         const storedAuthUser = JSON.parse(localStorage.getItem('authUser'));
         const token = storedAuthUser ? storedAuthUser.token : null;
 
-        // We use the direct res.data and add the token to it
         const userWithToken = { ...res.data, token };
-
         get().setAuthUser(userWithToken);
       } else {
-        // If there's no user in the response, clear the auth state
         console.log("[useAuthStore] Server response was empty or invalid. Clearing auth.");
         get().setAuthUser(null);
       }
     } catch (error) {
       console.error('[useAuthStore] Auth check failed:', error);
+      // If checkAuth fails, it means the token was invalid or missing.
+      // The response interceptor in axios.js might handle the logout for 401s,
+      // but explicitly clearing here ensures consistency.
       get().setAuthUser(null);
     } finally {
       console.log("[checkAuth] ending the checkAuth function");
@@ -77,7 +80,7 @@ export const useAuthStore = create((set, get) => ({
     set({ isSigningUp: true });
     try {
       const res = await axiosInstance.post("/auth/signup", data);
-      get().setAuthUser(res.data); // Use the setAuthUser helper
+      get().setAuthUser(res.data); // This will save to localStorage
       toast.success("Account created successfully");
     } catch (error) {
       toast.error(error.response?.data?.message || "Signup failed.");
@@ -92,7 +95,7 @@ export const useAuthStore = create((set, get) => ({
       const res = await axiosInstance.post("/auth/login", data);
       // Ensure the token is part of the authUser object if it's not already
       const newUser = { ...res.data.user, token: res.data.token };
-      get().setAuthUser(newUser); // Use the setAuthUser helper
+      get().setAuthUser(newUser); // This will save to localStorage
       toast.success("Logged in successfully");
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed.");
@@ -104,7 +107,7 @@ export const useAuthStore = create((set, get) => ({
   logout: async () => {
     try {
       await axiosInstance.post("/auth/logout");
-      get().setAuthUser(null); // Use the setAuthUser helper
+      get().setAuthUser(null); // This will clear localStorage
       toast.success("Logged out successfully");
     } catch (error) {
       toast.error(error.response?.data?.message || "Logout failed.");
@@ -115,7 +118,7 @@ export const useAuthStore = create((set, get) => ({
     set({ isUpdatingProfile: true });
     try {
       const res = await axiosInstance.put("/auth/update-profile", data);
-      get().setAuthUser(res.data); // Use the setAuthUser helper
+      get().setAuthUser(res.data); // This will update localStorage
       toast.success("Profile updated successfully");
     } catch (error) {
       console.log("error in update profile:", error);
