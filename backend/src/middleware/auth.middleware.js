@@ -8,8 +8,8 @@ export const protectRoute = async (req, res, next) => {
     // --- CRITICAL BYPASS LOGIC FOR PUBLIC SHARE LINKS ---
     // This check MUST happen before any token validation.
     const isGetMethod = req.method === 'GET';
-    // UPDATED: Check if originalUrl includes '/api/family/map' OR '/api/family/' (for specific member details)
-    const isFamilyMapOrMemberPath = req.originalUrl.includes('/api/family/map') || req.originalUrl.includes('/api/family/'); 
+    // Check if originalUrl includes '/api/family/map' OR '/api/family/' (for specific member details)
+    const isFamilyMapOrMemberPath = req.originalUrl.includes('/api/family/map') || req.originalUrl.includes('/api/family/');
     const hasShareId = typeof req.query.shareId === 'string' && req.query.shareId.length > 0;
 
     console.log(`[ProtectRoute] Evaluation - isGetMethod: ${isGetMethod}, isFamilyMapOrMemberPath: ${isFamilyMapOrMemberPath}, hasShareId: ${hasShareId}`);
@@ -23,11 +23,20 @@ export const protectRoute = async (req, res, next) => {
     // If the bypass condition was NOT met, proceed with standard authentication checks.
     console.log("[ProtectRoute] Standard authentication flow initiated.");
     try {
-        const token = req.cookies.jwt;
-        console.log(`[ProtectRoute] Token found: ${!!token}`);
+        let token;
+
+        // Check for token in cookies first
+        if (req.cookies.jwt) {
+            token = req.cookies.jwt;
+            console.log("[ProtectRoute] Token found in cookies.");
+        } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            // If not in cookies, check for token in Authorization header
+            token = req.headers.authorization.split(' ')[1];
+            console.log("[ProtectRoute] Token found in Authorization header.");
+        }
 
         if (!token) {
-            console.log("[ProtectRoute] No token provided. Sending 401.");
+            console.log("[ProtectRoute] No token provided (neither cookie nor header). Sending 401.");
             return res.status(401).json({ message: "Unauthorized - No Token Provided" });
         }
 
